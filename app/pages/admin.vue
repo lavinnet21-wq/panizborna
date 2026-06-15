@@ -76,7 +76,7 @@
             <p v-if="pendingSettingFiles.introImage" class="form-status-note">
               {{ pendingSettingFiles.introImage.name }} is ready. Save home content to publish it.
             </p>
-            <img v-if="settingsForm.introImage" :src="settingsForm.introImage" alt="" />
+            <img v-if="getSettingImagePreview('introImage')" :src="getSettingImagePreview('introImage')" alt="" />
           </div>
 
           <label>
@@ -103,7 +103,7 @@
             <p v-if="pendingSettingFiles.featureImage" class="form-status-note">
               {{ pendingSettingFiles.featureImage.name }} is ready. Save home content to publish it.
             </p>
-            <img v-if="settingsForm.featureImage" :src="settingsForm.featureImage" alt="" />
+            <img v-if="getSettingImagePreview('featureImage')" :src="getSettingImagePreview('featureImage')" alt="" />
           </div>
 
           <label class="wide-field">
@@ -262,7 +262,7 @@
             <p v-if="pendingSettingFiles.artistImage" class="form-status-note">
               {{ pendingSettingFiles.artistImage.name }} is ready. Save settings to publish it.
             </p>
-            <img v-if="settingsForm.artistImage" :src="settingsForm.artistImage" alt="" />
+            <img v-if="getSettingImagePreview('artistImage')" :src="getSettingImagePreview('artistImage')" alt="" />
           </div>
 
           <label>
@@ -343,6 +343,11 @@ const pendingSettingFiles = reactive<{
   featureImage: null,
   artistImage: null,
 });
+const pendingSettingImagePreviews = reactive<Record<"introImage" | "featureImage" | "artistImage", string>>({
+  introImage: "",
+  featureImage: "",
+  artistImage: "",
+});
 const pendingArtworkCoverFile = ref<File | null>(null);
 const pendingArtworkGalleryFiles = ref<File[]>([]);
 const loginForm = reactive({
@@ -390,6 +395,10 @@ const adminArtworksByYear = computed(() => {
 
 function artworkImageCount(artwork: Artwork) {
   return [artwork.image, ...(artwork.images || [])].filter(Boolean).length;
+}
+
+function getSettingImagePreview(key: "artistImage" | "introImage" | "featureImage") {
+  return pendingSettingImagePreviews[key] || settingsForm[key];
 }
 
 function runWithoutArtworkDirtyTracking(callback: () => void) {
@@ -517,6 +526,9 @@ async function saveSiteSettings() {
     pendingSettingFiles.introImage = null;
     pendingSettingFiles.featureImage = null;
     pendingSettingFiles.artistImage = null;
+    pendingSettingImagePreviews.introImage = "";
+    pendingSettingImagePreviews.featureImage = "";
+    pendingSettingImagePreviews.artistImage = "";
     adminMessage.value = "Settings saved and published on the site.";
     hasUnsavedSettingsChanges.value = false;
     homeSaveSuccess.value = true;
@@ -638,7 +650,7 @@ async function uploadSettingImage(
 
     if (file) {
       pendingSettingFiles[key] = file;
-      settingsForm[key] = URL.createObjectURL(file);
+      pendingSettingImagePreviews[key] = URL.createObjectURL(file);
       hasUnsavedSettingsChanges.value = true;
       homeSaveSuccess.value = false;
       contactSaveSuccess.value = false;
