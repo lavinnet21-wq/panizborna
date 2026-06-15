@@ -105,8 +105,12 @@
             <textarea v-model="settingsForm.aboutText" rows="5"></textarea>
           </label>
 
+          <p class="form-status-note wide-field">
+            Images and text in this section are only published after you click Save home content.
+          </p>
+
           <p v-if="hasUnsavedSettingsChanges" class="form-status-note wide-field">
-            Changes are ready. Click Save home content to publish them on the site.
+            New changes are ready. Click Save home content to publish them on the site.
           </p>
 
           <button type="submit">Save home content</button>
@@ -410,6 +414,9 @@ async function resetDemoData() {
 async function saveSiteSettings() {
   try {
     await saveSettings({ ...settingsForm });
+    runWithoutSettingsDirtyTracking(() => {
+      Object.assign(settingsForm, settings.value);
+    });
     adminMessage.value = "Settings saved and published on the site.";
     hasUnsavedSettingsChanges.value = false;
   } catch (error: any) {
@@ -483,24 +490,34 @@ async function uploadFiles(files: FileList | null, folder: string) {
 }
 
 async function uploadCoverImage(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const [image] = await uploadFiles(input.files, `artworks/${form.year || "uncategorized"}`);
+  try {
+    const input = event.target as HTMLInputElement;
+    const [image] = await uploadFiles(input.files, `artworks/${form.year || "uncategorized"}`);
 
-  if (image) {
-    form.image = image;
-    hasUnsavedArtworkChanges.value = true;
-    adminMessage.value = "Cover image uploaded. Click Save artwork to publish it on the site.";
+    if (image) {
+      form.image = image;
+      hasUnsavedArtworkChanges.value = true;
+      adminMessage.value = "Cover image uploaded. Click Save artwork to publish it on the site.";
+    }
+  } catch (error: any) {
+    adminMessage.value =
+      error.message || "Could not upload cover image. Check admin access and storage policies.";
   }
 }
 
 async function uploadGalleryImages(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const images = await uploadFiles(input.files, `artworks/${form.year || "uncategorized"}`);
+  try {
+    const input = event.target as HTMLInputElement;
+    const images = await uploadFiles(input.files, `artworks/${form.year || "uncategorized"}`);
 
-  if (images.length) {
-    galleryText.value = [...galleryImages.value, ...images].join("\n");
-    hasUnsavedArtworkChanges.value = true;
-    adminMessage.value = "Gallery images uploaded. Click Save artwork to publish them on the site.";
+    if (images.length) {
+      galleryText.value = [...galleryImages.value, ...images].join("\n");
+      hasUnsavedArtworkChanges.value = true;
+      adminMessage.value = "Gallery images uploaded. Click Save artwork to publish them on the site.";
+    }
+  } catch (error: any) {
+    adminMessage.value =
+      error.message || "Could not upload gallery images. Check admin access and storage policies.";
   }
 }
 
@@ -508,13 +525,18 @@ async function uploadSettingImage(
   event: Event,
   key: "artistImage" | "introImage" | "featureImage",
 ) {
-  const input = event.target as HTMLInputElement;
-  const [image] = await uploadFiles(input.files, "site");
+  try {
+    const input = event.target as HTMLInputElement;
+    const [image] = await uploadFiles(input.files, "site");
 
-  if (image) {
-    settingsForm[key] = image;
-    hasUnsavedSettingsChanges.value = true;
-    adminMessage.value = "Image uploaded. Click Save to publish it on the site.";
+    if (image) {
+      settingsForm[key] = image;
+      hasUnsavedSettingsChanges.value = true;
+      adminMessage.value = "Image uploaded. Click Save to publish it on the site.";
+    }
+  } catch (error: any) {
+    adminMessage.value =
+      error.message || "Could not upload image. Check admin access and storage policies.";
   }
 }
 

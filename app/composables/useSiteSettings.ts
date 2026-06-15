@@ -90,7 +90,8 @@ export function useSiteSettings() {
       throw error;
     }
 
-    settings.value = nextSettings;
+    settings.value = { ...nextSettings };
+    await loadSettings();
   }
 
   return {
