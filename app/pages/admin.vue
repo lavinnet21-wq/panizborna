@@ -379,9 +379,17 @@ async function saveSiteSettings() {
 }
 
 async function login() {
+  const email = loginForm.email.trim().toLowerCase();
+  const password = loginForm.password;
+
+  if (!email || !password) {
+    loginError.value = "Email and password are required.";
+    return;
+  }
+
   const { error } = await supabase.auth.signInWithPassword({
-    email: loginForm.email,
-    password: loginForm.password,
+    email,
+    password,
   });
 
   if (!error) {
@@ -397,9 +405,17 @@ async function login() {
 }
 
 async function createAdminAccount() {
-  const { error } = await supabase.auth.signUp({
-    email: loginForm.email,
-    password: loginForm.password,
+  const email = loginForm.email.trim().toLowerCase();
+  const password = loginForm.password;
+
+  if (!email || !password) {
+    loginError.value = "Enter email and password first.";
+    return;
+  }
+
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
   });
 
   if (error) {
@@ -407,7 +423,13 @@ async function createAdminAccount() {
     return;
   }
 
-  loginError.value = "Account created. If email confirmation is enabled, confirm it first, then log in.";
+  if (!data.user) {
+    loginError.value = "Account was not created. Check Supabase Auth settings.";
+    return;
+  }
+
+  loginError.value =
+    "Account request sent. This only creates an Auth user. You may still need email confirmation and an admin record in the database.";
 }
 
 async function logout() {
