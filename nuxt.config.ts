@@ -4,6 +4,9 @@ export default defineNuxtConfig({
   srcDir: "app/",
   css: ["~/assets/css/main.css"],
   devtools: { enabled: true },
+  routeRules: {
+    "/admin": { ssr: false },
+  },
   runtimeConfig: {
     public: {
       supabaseUrl: process.env.NUXT_PUBLIC_SUPABASE_URL,
