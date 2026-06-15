@@ -1,6 +1,8 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { useRuntimeConfig } from "#imports";
 
+let browserSupabaseClient: SupabaseClient | null = null;
+
 export function useSupabaseClient() {
   const config = useRuntimeConfig();
   const url = config.public.supabaseUrl;
@@ -10,10 +12,18 @@ export function useSupabaseClient() {
     throw new Error("Supabase environment variables are missing.");
   }
 
-  const client = useState<SupabaseClient | null>("supabase-client", () => null);
+  if (import.meta.server) {
+    return createClient(url, key, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    });
+  }
 
-  if (!client.value) {
-    client.value = createClient(url, key, {
+  if (!browserSupabaseClient) {
+    browserSupabaseClient = createClient(url, key, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
@@ -22,5 +32,5 @@ export function useSupabaseClient() {
     });
   }
 
-  return client.value;
+  return browserSupabaseClient;
 }
