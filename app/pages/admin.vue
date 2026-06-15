@@ -284,7 +284,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from "vue";
+import { computed, onMounted, reactive, ref, shallowReactive, shallowRef, watch } from "vue";
 import { useHead } from "#imports";
 import { useArtworks } from "../composables/useArtworks";
 import { useSiteSettings } from "../composables/useSiteSettings";
@@ -328,7 +328,7 @@ const artworkSaveSuccess = ref(false);
 const contactSaveSuccess = ref(false);
 const pauseArtworkDirtyTracking = ref(false);
 const pauseSettingsDirtyTracking = ref(false);
-const pendingSettingFiles = reactive<{
+const pendingSettingFiles = shallowReactive<{
   introImage: File | null;
   featureImage: File | null;
   artistImage: File | null;
@@ -342,8 +342,9 @@ const pendingSettingImagePreviews = reactive<Record<"introImage" | "featureImage
   featureImage: "",
   artistImage: "",
 });
-const pendingArtworkCoverFile = ref<File | null>(null);
-const pendingArtworkGalleryFiles = ref<File[]>([]);
+const pendingArtworkCoverFile = shallowRef<File | null>(null);
+const pendingArtworkGalleryFiles = shallowRef<File[]>([]);
+const pendingArtworkGalleryPreviews = ref<string[]>([]);
 const loginForm = reactive({
   email: "",
   password: "",
@@ -357,10 +358,7 @@ const savedGalleryImages = computed(() => {
 });
 
 const galleryPreviewImages = computed(() => {
-  return [
-    ...savedGalleryImages.value,
-    ...pendingArtworkGalleryFiles.value.map((file) => URL.createObjectURL(file)),
-  ];
+  return [...savedGalleryImages.value, ...pendingArtworkGalleryPreviews.value];
 });
 
 const sortedArtworks = computed(() => {
@@ -418,6 +416,7 @@ function clearForm() {
   });
   pendingArtworkCoverFile.value = null;
   pendingArtworkGalleryFiles.value = [];
+  pendingArtworkGalleryPreviews.value = [];
   hasUnsavedArtworkChanges.value = false;
   artworkSaveSuccess.value = false;
 }
@@ -455,6 +454,7 @@ async function saveArtwork() {
     adminMessage.value = "Artwork saved and published on the site.";
     pendingArtworkCoverFile.value = null;
     pendingArtworkGalleryFiles.value = [];
+    pendingArtworkGalleryPreviews.value = [];
     hasUnsavedArtworkChanges.value = false;
     artworkSaveSuccess.value = true;
     clearForm();
@@ -472,6 +472,7 @@ function editArtwork(artwork: Artwork) {
   });
   pendingArtworkCoverFile.value = null;
   pendingArtworkGalleryFiles.value = [];
+  pendingArtworkGalleryPreviews.value = [];
   hasUnsavedArtworkChanges.value = false;
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -509,14 +510,17 @@ async function saveSiteSettings(section: "home" | "contact") {
     const nextSettings = { ...settingsForm };
 
     if (pendingSettingFiles.introImage) {
+      adminMessage.value = "Uploading intro image...";
       nextSettings.introImage = await uploadFile(pendingSettingFiles.introImage, "site");
     }
 
     if (pendingSettingFiles.featureImage) {
+      adminMessage.value = "Uploading feature image...";
       nextSettings.featureImage = await uploadFile(pendingSettingFiles.featureImage, "site");
     }
 
     if (pendingSettingFiles.artistImage) {
+      adminMessage.value = "Uploading artist image...";
       nextSettings.artistImage = await uploadFile(pendingSettingFiles.artistImage, "site");
     }
 
@@ -597,7 +601,7 @@ async function uploadFile(file: File, folder: string) {
   const path = makeStoragePath(file, folder);
   const { error } = await supabase.storage.from("portfolio").upload(path, file, {
     cacheControl: "3600",
-    upsert: true,
+    upsert: false,
   });
 
   if (error) {
@@ -641,6 +645,10 @@ async function uploadGalleryImages(event: Event) {
 
     if (files.length) {
       pendingArtworkGalleryFiles.value = [...pendingArtworkGalleryFiles.value, ...files];
+      pendingArtworkGalleryPreviews.value = [
+        ...pendingArtworkGalleryPreviews.value,
+        ...files.map((file) => URL.createObjectURL(file)),
+      ];
       hasUnsavedArtworkChanges.value = true;
       artworkSaveSuccess.value = false;
       adminMessage.value = "Gallery images are ready. Click Save artwork to upload them to the bucket and publish them.";
