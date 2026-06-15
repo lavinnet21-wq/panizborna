@@ -178,8 +178,8 @@
             <div class="upload-field wide-field">
               <span>Upload gallery images</span>
               <input type="file" accept="image/*" multiple @change="uploadGalleryImages" />
-              <div v-if="galleryImages.length" class="upload-preview-grid">
-                <img v-for="image in galleryImages" :key="image" :src="image" alt="" />
+              <div v-if="galleryPreviewImages.length" class="upload-preview-grid">
+                <img v-for="image in galleryPreviewImages" :key="image" :src="image" alt="" />
               </div>
             </div>
 
@@ -302,16 +302,34 @@ const hasUnsavedArtworkChanges = ref(false);
 const hasUnsavedSettingsChanges = ref(false);
 const pauseArtworkDirtyTracking = ref(false);
 const pauseSettingsDirtyTracking = ref(false);
+const pendingSettingFiles = reactive<{
+  introImage: File | null;
+  featureImage: File | null;
+  artistImage: File | null;
+}>({
+  introImage: null,
+  featureImage: null,
+  artistImage: null,
+});
+const pendingArtworkCoverFile = ref<File | null>(null);
+const pendingArtworkGalleryFiles = ref<File[]>([]);
 const loginForm = reactive({
   email: "",
   password: "",
 });
 
-const galleryImages = computed(() => {
+const savedGalleryImages = computed(() => {
   return galleryText.value
     .split("\n")
     .map((path: string) => path.trim())
     .filter(Boolean);
+});
+
+const galleryPreviewImages = computed(() => {
+  return [
+    ...savedGalleryImages.value,
+    ...pendingArtworkGalleryFiles.value.map((file) => URL.createObjectURL(file)),
+  ];
 });
 
 const sortedArtworks = computed(() => {
@@ -363,19 +381,41 @@ function clearForm() {
     Object.assign(form, emptyArtwork);
     galleryText.value = "";
   });
+  pendingArtworkCoverFile.value = null;
+  pendingArtworkGalleryFiles.value = [];
   hasUnsavedArtworkChanges.value = false;
 }
 
 async function saveArtwork() {
   try {
+    let coverImage = form.image;
+    if (pendingArtworkCoverFile.value) {
+      coverImage = await uploadFile(
+        pendingArtworkCoverFile.value,
+        `artworks/${form.year || "uncategorized"}`,
+      );
+    }
+
+    const uploadedGalleryImages = pendingArtworkGalleryFiles.value.length
+      ? await Promise.all(
+          pendingArtworkGalleryFiles.value.map((file) =>
+            uploadFile(file, `artworks/${form.year || "uncategorized"}`),
+          ),
+        )
+      : [];
+
     await upsertArtwork({
       ...form,
+      image: coverImage,
       images: galleryText.value
         .split("\n")
         .map((path: string) => path.trim())
-        .filter(Boolean),
+        .filter(Boolean)
+        .concat(uploadedGalleryImages),
     });
     adminMessage.value = "Artwork saved and published on the site.";
+    pendingArtworkCoverFile.value = null;
+    pendingArtworkGalleryFiles.value = [];
     hasUnsavedArtworkChanges.value = false;
     clearForm();
   } catch (error: any) {
@@ -388,6 +428,8 @@ function editArtwork(artwork: Artwork) {
     Object.assign(form, artwork);
     galleryText.value = (artwork.images || []).join("\n");
   });
+  pendingArtworkCoverFile.value = null;
+  pendingArtworkGalleryFiles.value = [];
   hasUnsavedArtworkChanges.value = false;
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -413,10 +455,27 @@ async function resetDemoData() {
 
 async function saveSiteSettings() {
   try {
-    await saveSettings({ ...settingsForm });
+    const nextSettings = { ...settingsForm };
+
+    if (pendingSettingFiles.introImage) {
+      nextSettings.introImage = await uploadFile(pendingSettingFiles.introImage, "site");
+    }
+
+    if (pendingSettingFiles.featureImage) {
+      nextSettings.featureImage = await uploadFile(pendingSettingFiles.featureImage, "site");
+    }
+
+    if (pendingSettingFiles.artistImage) {
+      nextSettings.artistImage = await uploadFile(pendingSettingFiles.artistImage, "site");
+    }
+
+    await saveSettings(nextSettings);
     runWithoutSettingsDirtyTracking(() => {
       Object.assign(settingsForm, settings.value);
     });
+    pendingSettingFiles.introImage = null;
+    pendingSettingFiles.featureImage = null;
+    pendingSettingFiles.artistImage = null;
     adminMessage.value = "Settings saved and published on the site.";
     hasUnsavedSettingsChanges.value = false;
   } catch (error: any) {
@@ -492,12 +551,13 @@ async function uploadFiles(files: FileList | null, folder: string) {
 async function uploadCoverImage(event: Event) {
   try {
     const input = event.target as HTMLInputElement;
-    const [image] = await uploadFiles(input.files, `artworks/${form.year || "uncategorized"}`);
+    const [file] = Array.from(input.files || []);
 
-    if (image) {
-      form.image = image;
+    if (file) {
+      pendingArtworkCoverFile.value = file;
+      form.image = URL.createObjectURL(file);
       hasUnsavedArtworkChanges.value = true;
-      adminMessage.value = "Cover image uploaded. Click Save artwork to publish it on the site.";
+      adminMessage.value = "Cover image is ready. Click Save artwork to upload it to the bucket and publish it.";
     }
   } catch (error: any) {
     adminMessage.value =
@@ -508,12 +568,12 @@ async function uploadCoverImage(event: Event) {
 async function uploadGalleryImages(event: Event) {
   try {
     const input = event.target as HTMLInputElement;
-    const images = await uploadFiles(input.files, `artworks/${form.year || "uncategorized"}`);
+    const files = Array.from(input.files || []);
 
-    if (images.length) {
-      galleryText.value = [...galleryImages.value, ...images].join("\n");
+    if (files.length) {
+      pendingArtworkGalleryFiles.value = [...pendingArtworkGalleryFiles.value, ...files];
       hasUnsavedArtworkChanges.value = true;
-      adminMessage.value = "Gallery images uploaded. Click Save artwork to publish them on the site.";
+      adminMessage.value = "Gallery images are ready. Click Save artwork to upload them to the bucket and publish them.";
     }
   } catch (error: any) {
     adminMessage.value =
@@ -527,12 +587,13 @@ async function uploadSettingImage(
 ) {
   try {
     const input = event.target as HTMLInputElement;
-    const [image] = await uploadFiles(input.files, "site");
+    const [file] = Array.from(input.files || []);
 
-    if (image) {
-      settingsForm[key] = image;
+    if (file) {
+      pendingSettingFiles[key] = file;
+      settingsForm[key] = URL.createObjectURL(file);
       hasUnsavedSettingsChanges.value = true;
-      adminMessage.value = "Image uploaded. Click Save to publish it on the site.";
+      adminMessage.value = "Image is ready. Click Save home content to upload it to the bucket and publish it.";
     }
   } catch (error: any) {
     adminMessage.value =
