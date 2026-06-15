@@ -15,7 +15,15 @@
           <p>{{ settings.introText }}</p>
         </div>
         <div class="intro-image" aria-label="Ceramic work placeholder">
-          <img v-if="settings.introImage" :src="settings.introImage" alt="Selected ceramic work" />
+          <NuxtLink
+            v-if="settings.introImage && settings.introArtworkId"
+            class="home-image-link"
+            :to="`/works/${settings.introArtworkId}`"
+            aria-label="Open linked artwork"
+          >
+            <img :src="settings.introImage" alt="Selected ceramic work" />
+          </NuxtLink>
+          <img v-else-if="settings.introImage" :src="settings.introImage" alt="Selected ceramic work" />
           <span v-else>image / selected work</span>
         </div>
       </section>
@@ -27,7 +35,15 @@
           <p>{{ settings.featureText }}</p>
         </div>
         <div class="feature-image">
-          <img v-if="settings.featureImage" :src="settings.featureImage" alt="Artwork detail" />
+          <NuxtLink
+            v-if="settings.featureImage && settings.featureArtworkId"
+            class="home-image-link"
+            :to="`/works/${settings.featureArtworkId}`"
+            aria-label="Open linked artwork"
+          >
+            <img :src="settings.featureImage" alt="Artwork detail" />
+          </NuxtLink>
+          <img v-else-if="settings.featureImage" :src="settings.featureImage" alt="Artwork detail" />
           <span v-else>detail shot</span>
         </div>
       </section>

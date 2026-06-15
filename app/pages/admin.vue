@@ -77,6 +77,16 @@
           </div>
 
           <label>
+            Intro image project link
+            <select v-model="settingsForm.introArtworkId">
+              <option value="">No link</option>
+              <option v-for="artwork in sortedArtworks" :key="artwork.id" :value="artwork.id">
+                {{ artwork.year }} - {{ artwork.title }}
+              </option>
+            </select>
+          </label>
+
+          <label>
             Feature title
             <input v-model="settingsForm.featureTitle" placeholder="selected study" />
           </label>
@@ -99,6 +109,16 @@
             </p>
             <img v-if="getSettingImagePreview('featureImage')" :src="getSettingImagePreview('featureImage')" alt="" />
           </div>
+
+          <label>
+            Feature image project link
+            <select v-model="settingsForm.featureArtworkId">
+              <option value="">No link</option>
+              <option v-for="artwork in sortedArtworks" :key="artwork.id" :value="artwork.id">
+                {{ artwork.year }} - {{ artwork.title }}
+              </option>
+            </select>
+          </label>
 
           <label class="wide-field">
             About text
