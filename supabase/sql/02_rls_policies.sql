@@ -13,7 +13,7 @@ create policy "Admin users can read themselves or admins"
 on public.admin_users
 for select
 to authenticated
-using (user_id = auth.uid() or public.is_admin());
+using (user_id = auth.uid() or private.is_admin());
 
 drop policy if exists "Public can read artworks" on public.artworks;
 create policy "Public can read artworks"
@@ -27,22 +27,22 @@ create policy "Admins can insert artworks"
 on public.artworks
 for insert
 to authenticated
-with check (public.is_admin());
+with check (private.is_admin());
 
 drop policy if exists "Admins can update artworks" on public.artworks;
 create policy "Admins can update artworks"
 on public.artworks
 for update
 to authenticated
-using (public.is_admin())
-with check (public.is_admin());
+using (private.is_admin())
+with check (private.is_admin());
 
 drop policy if exists "Admins can delete artworks" on public.artworks;
 create policy "Admins can delete artworks"
 on public.artworks
 for delete
 to authenticated
-using (public.is_admin());
+using (private.is_admin());
 
 drop policy if exists "Public can read site settings" on public.site_settings;
 create policy "Public can read site settings"
@@ -56,12 +56,12 @@ create policy "Admins can insert site settings"
 on public.site_settings
 for insert
 to authenticated
-with check (public.is_admin());
+with check (private.is_admin());
 
 drop policy if exists "Admins can update site settings" on public.site_settings;
 create policy "Admins can update site settings"
 on public.site_settings
 for update
 to authenticated
-using (public.is_admin())
-with check (public.is_admin());
+using (private.is_admin())
+with check (private.is_admin());

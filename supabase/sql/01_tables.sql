@@ -43,11 +43,13 @@ insert into public.site_settings (id)
 values ('main')
 on conflict (id) do nothing;
 
-create or replace function public.is_admin()
+create schema if not exists private;
+
+create or replace function private.is_admin()
 returns boolean
 language sql
 security definer
-set search_path = public
+set search_path = ''
 as $$
   select exists (
     select 1
@@ -56,9 +58,14 @@ as $$
   );
 $$;
 
+revoke all on function private.is_admin() from public;
+revoke all on function private.is_admin() from anon;
+revoke all on function private.is_admin() from authenticated;
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
+set search_path = ''
 as $$
 begin
   new.updated_at = now();

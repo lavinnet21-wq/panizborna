@@ -249,7 +249,13 @@
 </template>
 
 <script setup lang="ts">
-import type { Artwork } from "~/types/artwork";
+import { computed, onMounted, reactive, ref } from "vue";
+import { useHead } from "#imports";
+import { useArtworks } from "../composables/useArtworks";
+import { useSiteSettings } from "../composables/useSiteSettings";
+import { useSupabaseClient } from "../composables/useSupabaseClient";
+import type { Artwork } from "../types/artwork";
+import type { SiteSettings } from "../types/site-settings";
 
 useHead({
   title: "Admin | Paniz Borna Portfolio",
@@ -273,7 +279,7 @@ const emptyArtwork: Artwork = {
 
 const form = reactive<Artwork>({ ...emptyArtwork });
 const galleryText = ref("");
-const settingsForm = reactive({ ...settings.value });
+const settingsForm = reactive<SiteSettings>({ ...settings.value });
 const isLoggedIn = ref(false);
 const loginError = ref("");
 const adminMessage = ref("");
@@ -285,7 +291,7 @@ const loginForm = reactive({
 const galleryImages = computed(() => {
   return galleryText.value
     .split("\n")
-    .map((path) => path.trim())
+    .map((path: string) => path.trim())
     .filter(Boolean);
 });
 
@@ -296,7 +302,7 @@ const sortedArtworks = computed(() => {
 });
 
 const adminArtworksByYear = computed(() => {
-  const groups = sortedArtworks.value.reduce<Record<string, Artwork[]>>((result, artwork) => {
+  const groups = sortedArtworks.value.reduce<Record<string, Artwork[]>>((result: Record<string, Artwork[]>, artwork: Artwork) => {
     if (!result[artwork.year]) {
       result[artwork.year] = [];
     }
@@ -328,7 +334,7 @@ async function saveArtwork() {
       ...form,
       images: galleryText.value
         .split("\n")
-        .map((path) => path.trim())
+        .map((path: string) => path.trim())
         .filter(Boolean),
     });
     adminMessage.value = "Artwork saved.";
@@ -473,12 +479,11 @@ async function uploadSettingImage(
   }
 }
 
-onMounted(() => {
-  supabase.auth.getSession().then(async ({ data }) => {
-    isLoggedIn.value = Boolean(data.session);
-    await loadArtworks();
-    await loadSettings();
-    Object.assign(settingsForm, settings.value);
-  });
+onMounted(async () => {
+  const sessionResult = await supabase.auth.getSession();
+  isLoggedIn.value = Boolean(sessionResult.data.session);
+  await loadArtworks();
+  await loadSettings();
+  Object.assign(settingsForm, settings.value);
 });
 </script>

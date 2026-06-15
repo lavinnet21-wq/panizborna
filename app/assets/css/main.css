@@ -1,13 +1,13 @@
 :root {
-  --paper: #e7e7e4;
+  --paper: #f0eded;
   --ink: #111111;
   --muted: #656563;
   --line: #1b1b1b;
-  --soft: #d4d4d0;
-  --wash-1: #c6c5c1;
-  --wash-2: #dad9d5;
-  --wash-3: #a9aaa6;
-  --wash-4: #c0b6aa;
+  --soft: #dfdcdc;
+  --wash-1: #d8d4d4;
+  --wash-2: #e7e2e2;
+  --wash-3: #c9c4c4;
+  --wash-4: #d4caca;
 }
 
 * {
@@ -42,7 +42,7 @@ body {
     radial-gradient(circle at 86% 18%, color-mix(in srgb, var(--wash-2) 64%, transparent), transparent 30%),
     radial-gradient(circle at 22% 82%, color-mix(in srgb, var(--wash-3) 58%, transparent), transparent 32%),
     radial-gradient(circle at 78% 78%, color-mix(in srgb, var(--wash-4) 62%, transparent), transparent 34%),
-    linear-gradient(180deg, #ededeb 0%, #dcdcd8 100%);
+    linear-gradient(180deg, #f0eded 0%, #e4dfdf 100%);
   filter: saturate(0.86);
   transition: background 700ms ease;
 }
@@ -120,14 +120,15 @@ main {
 .hero h1 {
   margin: 16px 0 0;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(76px, 16vw, 220px);
+  max-width: 10ch;
+  font-size: clamp(64px, 12vw, 168px);
   font-weight: 400;
-  line-height: 0.85;
+  line-height: 0.9;
   text-transform: lowercase;
 }
 
 .hero-name {
-  margin: 24px 0 0;
+  margin: 18px 0 0;
   color: var(--ink);
   letter-spacing: 0.18em;
 }
