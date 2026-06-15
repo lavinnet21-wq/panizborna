@@ -346,6 +346,14 @@ h2 {
   color: #8f251f;
 }
 
+.admin-message {
+  max-width: 520px;
+  margin: 18px 0 0;
+  border: 1px solid var(--line);
+  padding: 12px 14px;
+  color: var(--ink);
+}
+
 .admin-hero h1 {
   margin: 16px 0;
   font-family: Georgia, "Times New Roman", serif;

@@ -8,8 +8,8 @@
         <h1>admin login</h1>
         <form class="admin-login-form" @submit.prevent="login">
           <label>
-            Username
-            <input v-model="loginForm.username" autocomplete="username" />
+            Email
+            <input v-model="loginForm.email" type="email" autocomplete="username" />
           </label>
           <label>
             Password
@@ -17,6 +17,7 @@
           </label>
           <p v-if="loginError" class="login-error">{{ loginError }}</p>
           <button type="submit">Log in</button>
+          <button type="button" @click="createAdminAccount">Create admin account</button>
         </form>
       </section>
     </main>
@@ -34,6 +35,7 @@
           <a href="#settings">About / Contact</a>
           <button type="button" @click="logout">Log out</button>
         </div>
+        <p v-if="adminMessage" class="admin-message">{{ adminMessage }}</p>
       </section>
 
       <section class="admin-section" id="home-content">
@@ -203,7 +205,7 @@
                 </div>
                 <div class="admin-item-actions">
                   <button type="button" @click="editArtwork(artwork)">Edit</button>
-                  <button type="button" @click="deleteArtwork(artwork.id)">Delete</button>
+                  <button type="button" @click="removeArtwork(artwork.id)">Delete</button>
                 </div>
               </article>
             </div>
@@ -255,9 +257,7 @@ useHead({
 
 const { artworks, loadArtworks, upsertArtwork, deleteArtwork, resetArtworks } = useArtworks();
 const { settings, loadSettings, saveSettings } = useSiteSettings();
-const adminSessionKey = "paniz-admin-session";
-const adminUsername = "paniz";
-const adminPassword = "paniz2026";
+const supabase = useSupabaseClient();
 
 const emptyArtwork: Artwork = {
   id: "",
@@ -276,8 +276,9 @@ const galleryText = ref("");
 const settingsForm = reactive({ ...settings.value });
 const isLoggedIn = ref(false);
 const loginError = ref("");
+const adminMessage = ref("");
 const loginForm = reactive({
-  username: "",
+  email: "",
   password: "",
 });
 
@@ -321,15 +322,20 @@ function clearForm() {
   galleryText.value = "";
 }
 
-function saveArtwork() {
-  upsertArtwork({
-    ...form,
-    images: galleryText.value
-      .split("\n")
-      .map((path) => path.trim())
-      .filter(Boolean),
-  });
-  clearForm();
+async function saveArtwork() {
+  try {
+    await upsertArtwork({
+      ...form,
+      images: galleryText.value
+        .split("\n")
+        .map((path) => path.trim())
+        .filter(Boolean),
+    });
+    adminMessage.value = "Artwork saved.";
+    clearForm();
+  } catch (error: any) {
+    adminMessage.value = error.message || "Could not save artwork.";
+  }
 }
 
 function editArtwork(artwork: Artwork) {
@@ -338,52 +344,108 @@ function editArtwork(artwork: Artwork) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function resetDemoData() {
-  resetArtworks();
-  clearForm();
+async function removeArtwork(id: string) {
+  try {
+    await deleteArtwork(id);
+    adminMessage.value = "Artwork deleted.";
+  } catch (error: any) {
+    adminMessage.value = error.message || "Could not delete artwork.";
+  }
 }
 
-function saveSiteSettings() {
-  saveSettings({ ...settingsForm });
+async function resetDemoData() {
+  try {
+    await resetArtworks();
+    adminMessage.value = "Demo artworks saved to Supabase.";
+    clearForm();
+  } catch (error: any) {
+    adminMessage.value = error.message || "Could not reset demo data.";
+  }
 }
 
-function login() {
-  if (loginForm.username === adminUsername && loginForm.password === adminPassword) {
+async function saveSiteSettings() {
+  try {
+    await saveSettings({ ...settingsForm });
+    adminMessage.value = "Settings saved.";
+  } catch (error: any) {
+    adminMessage.value = error.message || "Could not save settings.";
+  }
+}
+
+async function login() {
+  const { error } = await supabase.auth.signInWithPassword({
+    email: loginForm.email,
+    password: loginForm.password,
+  });
+
+  if (!error) {
     isLoggedIn.value = true;
     loginError.value = "";
-    sessionStorage.setItem(adminSessionKey, "true");
+    await loadArtworks();
+    await loadSettings();
+    Object.assign(settingsForm, settings.value);
     return;
   }
 
-  loginError.value = "Username or password is incorrect.";
+  loginError.value = error.message;
 }
 
-function logout() {
-  isLoggedIn.value = false;
-  sessionStorage.removeItem(adminSessionKey);
-}
+async function createAdminAccount() {
+  const { error } = await supabase.auth.signUp({
+    email: loginForm.email,
+    password: loginForm.password,
+  });
 
-function readFiles(files: FileList | null) {
-  if (!files?.length) {
-    return Promise.resolve([]);
+  if (error) {
+    loginError.value = error.message;
+    return;
   }
 
-  return Promise.all(
-    Array.from(files).map(
-      (file) =>
-        new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result));
-          reader.onerror = () => reject(reader.error);
-          reader.readAsDataURL(file);
-        }),
-    ),
-  );
+  loginError.value = "Account created. If email confirmation is enabled, confirm it first, then log in.";
+}
+
+async function logout() {
+  await supabase.auth.signOut();
+  isLoggedIn.value = false;
+}
+
+function makeStoragePath(file: File, folder: string) {
+  const extension = file.name.split(".").pop() || "jpg";
+  const safeName = file.name
+    .replace(/\.[^/.]+$/, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  return `${folder}/${Date.now()}-${safeName}.${extension}`;
+}
+
+async function uploadFile(file: File, folder: string) {
+  const path = makeStoragePath(file, folder);
+  const { error } = await supabase.storage.from("portfolio").upload(path, file, {
+    cacheControl: "3600",
+    upsert: true,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const { data } = supabase.storage.from("portfolio").getPublicUrl(path);
+  return data.publicUrl;
+}
+
+async function uploadFiles(files: FileList | null, folder: string) {
+  if (!files?.length) {
+    return [];
+  }
+
+  return Promise.all(Array.from(files).map((file) => uploadFile(file, folder)));
 }
 
 async function uploadCoverImage(event: Event) {
   const input = event.target as HTMLInputElement;
-  const [image] = await readFiles(input.files);
+  const [image] = await uploadFiles(input.files, `artworks/${form.year || "uncategorized"}`);
 
   if (image) {
     form.image = image;
@@ -392,7 +454,7 @@ async function uploadCoverImage(event: Event) {
 
 async function uploadGalleryImages(event: Event) {
   const input = event.target as HTMLInputElement;
-  const images = await readFiles(input.files);
+  const images = await uploadFiles(input.files, `artworks/${form.year || "uncategorized"}`);
 
   if (images.length) {
     galleryText.value = [...galleryImages.value, ...images].join("\n");
@@ -404,7 +466,7 @@ async function uploadSettingImage(
   key: "artistImage" | "introImage" | "featureImage",
 ) {
   const input = event.target as HTMLInputElement;
-  const [image] = await readFiles(input.files);
+  const [image] = await uploadFiles(input.files, "site");
 
   if (image) {
     settingsForm[key] = image;
@@ -412,9 +474,11 @@ async function uploadSettingImage(
 }
 
 onMounted(() => {
-  isLoggedIn.value = sessionStorage.getItem(adminSessionKey) === "true";
-  loadArtworks();
-  loadSettings();
-  Object.assign(settingsForm, settings.value);
+  supabase.auth.getSession().then(async ({ data }) => {
+    isLoggedIn.value = Boolean(data.session);
+    await loadArtworks();
+    await loadSettings();
+    Object.assign(settingsForm, settings.value);
+  });
 });
 </script>

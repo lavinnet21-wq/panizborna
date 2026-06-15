@@ -1,7 +1,5 @@
 import type { Artwork } from "~/types/artwork";
 
-const storageKey = "paniz-portfolio-artworks";
-
 const defaultArtworks: Artwork[] = [
   {
     id: "untitled-vessel-study",
@@ -68,57 +66,93 @@ function createArtworkId(title: string) {
     .replace(/^-|-$/g, "");
 }
 
+function fromArtworkRow(row: any): Artwork {
+  return {
+    id: row.id,
+    title: row.title,
+    year: row.year,
+    medium: row.medium,
+    dimensions: row.dimensions || "",
+    status: row.status || "",
+    image: row.image || "",
+    images: row.images || [],
+    description: row.description || "",
+  };
+}
+
+function toArtworkRow(artwork: Artwork) {
+  return {
+    id: artwork.id || createArtworkId(artwork.title),
+    title: artwork.title,
+    year: artwork.year,
+    medium: artwork.medium,
+    dimensions: artwork.dimensions || "",
+    status: artwork.status || "",
+    image: artwork.image || "",
+    images: artwork.images || [],
+    description: artwork.description || "",
+    updated_at: new Date().toISOString(),
+  };
+}
+
 export function useArtworks() {
   const artworks = useState<Artwork[]>("artworks", () => defaultArtworks);
+  const artworksError = useState<string>("artworks-error", () => "");
 
-  function loadArtworks() {
-    if (!import.meta.client) {
-      return;
-    }
-
-    const stored = localStorage.getItem(storageKey);
-
-    if (!stored) {
-      artworks.value = defaultArtworks;
-      return;
-    }
-
+  async function loadArtworks() {
     try {
-      artworks.value = JSON.parse(stored);
-    } catch {
+      const supabase = useSupabaseClient();
+      const { data, error } = await supabase
+        .from("artworks")
+        .select("*")
+        .order("year", { ascending: false })
+        .order("title", { ascending: true });
+
+      if (error) {
+        throw error;
+      }
+
+      artworks.value = data?.length ? data.map(fromArtworkRow) : defaultArtworks;
+      artworksError.value = "";
+    } catch (error: any) {
       artworks.value = defaultArtworks;
+      artworksError.value = error.message || "Could not load artworks.";
     }
   }
 
-  function saveArtworks(nextArtworks: Artwork[]) {
-    artworks.value = nextArtworks;
-
-    if (import.meta.client) {
-      localStorage.setItem(storageKey, JSON.stringify(nextArtworks));
-    }
-  }
-
-  function upsertArtwork(artwork: Artwork) {
+  async function upsertArtwork(artwork: Artwork) {
     const id = artwork.id || createArtworkId(artwork.title);
     const nextArtwork = { ...artwork, id, images: artwork.images || [] };
-    const index = artworks.value.findIndex((item) => item.id === id);
-    const nextArtworks = [...artworks.value];
+    const supabase = useSupabaseClient();
+    const { error } = await supabase.from("artworks").upsert(toArtworkRow(nextArtwork));
 
-    if (index >= 0) {
-      nextArtworks[index] = nextArtwork;
-    } else {
-      nextArtworks.push(nextArtwork);
+    if (error) {
+      throw error;
     }
 
-    saveArtworks(nextArtworks);
+    await loadArtworks();
   }
 
-  function deleteArtwork(id: string) {
-    saveArtworks(artworks.value.filter((artwork) => artwork.id !== id));
+  async function deleteArtwork(id: string) {
+    const supabase = useSupabaseClient();
+    const { error } = await supabase.from("artworks").delete().eq("id", id);
+
+    if (error) {
+      throw error;
+    }
+
+    await loadArtworks();
   }
 
-  function resetArtworks() {
-    saveArtworks(defaultArtworks);
+  async function resetArtworks() {
+    const supabase = useSupabaseClient();
+    const { error } = await supabase.from("artworks").upsert(defaultArtworks.map(toArtworkRow));
+
+    if (error) {
+      throw error;
+    }
+
+    await loadArtworks();
   }
 
   const artworksByYear = computed(() => {
@@ -141,6 +175,7 @@ export function useArtworks() {
 
   return {
     artworks,
+    artworksError,
     artworksByYear,
     loadArtworks,
     upsertArtwork,
