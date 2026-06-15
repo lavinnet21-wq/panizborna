@@ -17,7 +17,6 @@
           </label>
           <p v-if="loginError" class="login-error">{{ loginError }}</p>
           <button type="submit">Log in</button>
-          <button type="button" @click="createAdminAccount">Create admin account</button>
         </form>
       </section>
     </main>
@@ -402,34 +401,6 @@ async function login() {
   }
 
   loginError.value = error.message;
-}
-
-async function createAdminAccount() {
-  const email = loginForm.email.trim().toLowerCase();
-  const password = loginForm.password;
-
-  if (!email || !password) {
-    loginError.value = "Enter email and password first.";
-    return;
-  }
-
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-  });
-
-  if (error) {
-    loginError.value = error.message;
-    return;
-  }
-
-  if (!data.user) {
-    loginError.value = "Account was not created. Check Supabase Auth settings.";
-    return;
-  }
-
-  loginError.value =
-    "Account request sent. This only creates an Auth user. You may still need email confirmation and an admin record in the database.";
 }
 
 async function logout() {
