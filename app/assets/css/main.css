@@ -571,6 +571,11 @@ button:hover {
   color: var(--paper);
 }
 
+button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
 .admin-list-heading {
   display: flex;
   justify-content: space-between;
