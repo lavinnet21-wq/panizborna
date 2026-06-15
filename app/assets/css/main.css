@@ -1,13 +1,13 @@
 :root {
-  --paper: #f0eded;
+  --paper: #f2eded;
   --ink: #111111;
   --muted: #656563;
   --line: #1b1b1b;
-  --soft: #dfdcdc;
-  --wash-1: #d8d4d4;
-  --wash-2: #e7e2e2;
-  --wash-3: #c9c4c4;
-  --wash-4: #d4caca;
+  --soft: #e3dddd;
+  --wash-1: #ddd7d7;
+  --wash-2: #ece5e5;
+  --wash-3: #d0c8c8;
+  --wash-4: #d8cccc;
 }
 
 * {
@@ -26,7 +26,7 @@ body,
 
 body {
   margin: 0;
-  background: #141414;
+  background: #f2eded;
   color: var(--ink);
   font-family: Arial, Helvetica, sans-serif;
   font-size: 14px;
@@ -42,7 +42,7 @@ body {
     radial-gradient(circle at 86% 18%, color-mix(in srgb, var(--wash-2) 64%, transparent), transparent 30%),
     radial-gradient(circle at 22% 82%, color-mix(in srgb, var(--wash-3) 58%, transparent), transparent 32%),
     radial-gradient(circle at 78% 78%, color-mix(in srgb, var(--wash-4) 62%, transparent), transparent 34%),
-    linear-gradient(180deg, #f0eded 0%, #e4dfdf 100%);
+    linear-gradient(180deg, #f2eded 0%, #e8e1e1 100%);
   filter: saturate(0.86);
   transition: background 700ms ease;
 }
