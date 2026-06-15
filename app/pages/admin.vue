@@ -73,6 +73,9 @@
               <input v-model="settingsForm.introImage" placeholder="/assets/home-intro.jpg" />
             </label>
             <input type="file" accept="image/*" @change="uploadSettingImage($event, 'introImage')" />
+            <p v-if="pendingSettingFiles.introImage" class="form-status-note">
+              {{ pendingSettingFiles.introImage.name }} is ready. Save home content to publish it.
+            </p>
             <img v-if="settingsForm.introImage" :src="settingsForm.introImage" alt="" />
           </div>
 
@@ -97,6 +100,9 @@
               <input v-model="settingsForm.featureImage" placeholder="/assets/home-detail.jpg" />
             </label>
             <input type="file" accept="image/*" @change="uploadSettingImage($event, 'featureImage')" />
+            <p v-if="pendingSettingFiles.featureImage" class="form-status-note">
+              {{ pendingSettingFiles.featureImage.name }} is ready. Save home content to publish it.
+            </p>
             <img v-if="settingsForm.featureImage" :src="settingsForm.featureImage" alt="" />
           </div>
 
@@ -113,7 +119,11 @@
             New changes are ready. Click Save home content to publish them on the site.
           </p>
 
-          <button type="submit">Save home content</button>
+          <p v-if="homeSaveSuccess" class="form-success-note wide-field">
+            Home content saved successfully and is now connected to the first page.
+          </p>
+
+          <button type="submit">{{ isSavingHome ? "Saving..." : "Save home content" }}</button>
         </form>
       </section>
 
@@ -163,6 +173,9 @@
             <div class="upload-field">
               <span>Upload cover</span>
               <input type="file" accept="image/*" @change="uploadCoverImage" />
+              <p v-if="pendingArtworkCoverFile" class="form-status-note">
+                {{ pendingArtworkCoverFile.name }} is ready. Save artwork to publish it.
+              </p>
               <img v-if="form.image" :src="form.image" alt="" />
             </div>
 
@@ -178,6 +191,9 @@
             <div class="upload-field wide-field">
               <span>Upload gallery images</span>
               <input type="file" accept="image/*" multiple @change="uploadGalleryImages" />
+              <p v-if="pendingArtworkGalleryFiles.length" class="form-status-note">
+                {{ pendingArtworkGalleryFiles.length }} new image(s) are ready. Save artwork to publish them.
+              </p>
               <div v-if="galleryPreviewImages.length" class="upload-preview-grid">
                 <img v-for="image in galleryPreviewImages" :key="image" :src="image" alt="" />
               </div>
@@ -192,8 +208,12 @@
               Artwork changes are ready. Click Save artwork to publish them on the site.
             </p>
 
+            <p v-if="artworkSaveSuccess" class="form-success-note wide-field">
+              Artwork saved successfully and is now connected to the site.
+            </p>
+
             <div class="admin-actions wide-field">
-              <button type="submit">Save artwork</button>
+              <button type="submit">{{ isSavingArtwork ? "Saving..." : "Save artwork" }}</button>
               <button type="button" @click="clearForm">New artwork</button>
               <button type="button" @click="resetDemoData">Reset demo data</button>
             </div>
@@ -239,6 +259,9 @@
           <div class="upload-field">
             <span>Upload artist image</span>
             <input type="file" accept="image/*" @change="uploadSettingImage($event, 'artistImage')" />
+            <p v-if="pendingSettingFiles.artistImage" class="form-status-note">
+              {{ pendingSettingFiles.artistImage.name }} is ready. Save settings to publish it.
+            </p>
             <img v-if="settingsForm.artistImage" :src="settingsForm.artistImage" alt="" />
           </div>
 
@@ -256,7 +279,11 @@
             Changes are ready. Click Save settings to publish them on the site.
           </p>
 
-          <button type="submit">Save settings</button>
+          <p v-if="contactSaveSuccess" class="form-success-note wide-field">
+            About and contact settings saved successfully.
+          </p>
+
+          <button type="submit">{{ isSavingHome ? "Saving..." : "Save settings" }}</button>
         </form>
       </section>
     </main>
@@ -300,6 +327,11 @@ const loginError = ref("");
 const adminMessage = ref("");
 const hasUnsavedArtworkChanges = ref(false);
 const hasUnsavedSettingsChanges = ref(false);
+const isSavingHome = ref(false);
+const isSavingArtwork = ref(false);
+const homeSaveSuccess = ref(false);
+const artworkSaveSuccess = ref(false);
+const contactSaveSuccess = ref(false);
 const pauseArtworkDirtyTracking = ref(false);
 const pauseSettingsDirtyTracking = ref(false);
 const pendingSettingFiles = reactive<{
@@ -384,10 +416,13 @@ function clearForm() {
   pendingArtworkCoverFile.value = null;
   pendingArtworkGalleryFiles.value = [];
   hasUnsavedArtworkChanges.value = false;
+  artworkSaveSuccess.value = false;
 }
 
 async function saveArtwork() {
   try {
+    isSavingArtwork.value = true;
+    artworkSaveSuccess.value = false;
     let coverImage = form.image;
     if (pendingArtworkCoverFile.value) {
       coverImage = await uploadFile(
@@ -417,9 +452,12 @@ async function saveArtwork() {
     pendingArtworkCoverFile.value = null;
     pendingArtworkGalleryFiles.value = [];
     hasUnsavedArtworkChanges.value = false;
+    artworkSaveSuccess.value = true;
     clearForm();
   } catch (error: any) {
     adminMessage.value = error.message || "Could not save artwork.";
+  } finally {
+    isSavingArtwork.value = false;
   }
 }
 
@@ -455,6 +493,9 @@ async function resetDemoData() {
 
 async function saveSiteSettings() {
   try {
+    isSavingHome.value = true;
+    homeSaveSuccess.value = false;
+    contactSaveSuccess.value = false;
     const nextSettings = { ...settingsForm };
 
     if (pendingSettingFiles.introImage) {
@@ -478,8 +519,12 @@ async function saveSiteSettings() {
     pendingSettingFiles.artistImage = null;
     adminMessage.value = "Settings saved and published on the site.";
     hasUnsavedSettingsChanges.value = false;
+    homeSaveSuccess.value = true;
+    contactSaveSuccess.value = true;
   } catch (error: any) {
     adminMessage.value = error.message || "Could not save settings.";
+  } finally {
+    isSavingHome.value = false;
   }
 }
 
@@ -557,6 +602,7 @@ async function uploadCoverImage(event: Event) {
       pendingArtworkCoverFile.value = file;
       form.image = URL.createObjectURL(file);
       hasUnsavedArtworkChanges.value = true;
+      artworkSaveSuccess.value = false;
       adminMessage.value = "Cover image is ready. Click Save artwork to upload it to the bucket and publish it.";
     }
   } catch (error: any) {
@@ -573,6 +619,7 @@ async function uploadGalleryImages(event: Event) {
     if (files.length) {
       pendingArtworkGalleryFiles.value = [...pendingArtworkGalleryFiles.value, ...files];
       hasUnsavedArtworkChanges.value = true;
+      artworkSaveSuccess.value = false;
       adminMessage.value = "Gallery images are ready. Click Save artwork to upload them to the bucket and publish them.";
     }
   } catch (error: any) {
@@ -593,6 +640,8 @@ async function uploadSettingImage(
       pendingSettingFiles[key] = file;
       settingsForm[key] = URL.createObjectURL(file);
       hasUnsavedSettingsChanges.value = true;
+      homeSaveSuccess.value = false;
+      contactSaveSuccess.value = false;
       adminMessage.value = "Image is ready. Click Save home content to upload it to the bucket and publish it.";
     }
   } catch (error: any) {
