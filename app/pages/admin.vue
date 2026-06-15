@@ -105,6 +105,10 @@
             <textarea v-model="settingsForm.aboutText" rows="5"></textarea>
           </label>
 
+          <p v-if="hasUnsavedSettingsChanges" class="form-status-note wide-field">
+            Changes are ready. Click Save home content to publish them on the site.
+          </p>
+
           <button type="submit">Save home content</button>
         </form>
       </section>
@@ -180,6 +184,10 @@
               <textarea v-model="form.description" rows="5"></textarea>
             </label>
 
+            <p v-if="hasUnsavedArtworkChanges" class="form-status-note wide-field">
+              Artwork changes are ready. Click Save artwork to publish them on the site.
+            </p>
+
             <div class="admin-actions wide-field">
               <button type="submit">Save artwork</button>
               <button type="button" @click="clearForm">New artwork</button>
@@ -240,6 +248,10 @@
             <input v-model="settingsForm.phone" placeholder="+98 ..." />
           </label>
 
+          <p v-if="hasUnsavedSettingsChanges" class="form-status-note wide-field">
+            Changes are ready. Click Save settings to publish them on the site.
+          </p>
+
           <button type="submit">Save settings</button>
         </form>
       </section>
@@ -248,7 +260,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useHead } from "#imports";
 import { useArtworks } from "../composables/useArtworks";
 import { useSiteSettings } from "../composables/useSiteSettings";
@@ -282,6 +294,10 @@ const settingsForm = reactive<SiteSettings>({ ...settings.value });
 const isLoggedIn = ref(false);
 const loginError = ref("");
 const adminMessage = ref("");
+const hasUnsavedArtworkChanges = ref(false);
+const hasUnsavedSettingsChanges = ref(false);
+const pauseArtworkDirtyTracking = ref(false);
+const pauseSettingsDirtyTracking = ref(false);
 const loginForm = reactive({
   email: "",
   password: "",
@@ -322,9 +338,28 @@ function artworkImageCount(artwork: Artwork) {
   return [artwork.image, ...(artwork.images || [])].filter(Boolean).length;
 }
 
+function runWithoutArtworkDirtyTracking(callback: () => void) {
+  pauseArtworkDirtyTracking.value = true;
+  callback();
+  setTimeout(() => {
+    pauseArtworkDirtyTracking.value = false;
+  }, 0);
+}
+
+function runWithoutSettingsDirtyTracking(callback: () => void) {
+  pauseSettingsDirtyTracking.value = true;
+  callback();
+  setTimeout(() => {
+    pauseSettingsDirtyTracking.value = false;
+  }, 0);
+}
+
 function clearForm() {
-  Object.assign(form, emptyArtwork);
-  galleryText.value = "";
+  runWithoutArtworkDirtyTracking(() => {
+    Object.assign(form, emptyArtwork);
+    galleryText.value = "";
+  });
+  hasUnsavedArtworkChanges.value = false;
 }
 
 async function saveArtwork() {
@@ -336,7 +371,8 @@ async function saveArtwork() {
         .map((path: string) => path.trim())
         .filter(Boolean),
     });
-    adminMessage.value = "Artwork saved.";
+    adminMessage.value = "Artwork saved and published on the site.";
+    hasUnsavedArtworkChanges.value = false;
     clearForm();
   } catch (error: any) {
     adminMessage.value = error.message || "Could not save artwork.";
@@ -344,8 +380,11 @@ async function saveArtwork() {
 }
 
 function editArtwork(artwork: Artwork) {
-  Object.assign(form, artwork);
-  galleryText.value = (artwork.images || []).join("\n");
+  runWithoutArtworkDirtyTracking(() => {
+    Object.assign(form, artwork);
+    galleryText.value = (artwork.images || []).join("\n");
+  });
+  hasUnsavedArtworkChanges.value = false;
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -371,7 +410,8 @@ async function resetDemoData() {
 async function saveSiteSettings() {
   try {
     await saveSettings({ ...settingsForm });
-    adminMessage.value = "Settings saved.";
+    adminMessage.value = "Settings saved and published on the site.";
+    hasUnsavedSettingsChanges.value = false;
   } catch (error: any) {
     adminMessage.value = error.message || "Could not save settings.";
   }
@@ -448,6 +488,8 @@ async function uploadCoverImage(event: Event) {
 
   if (image) {
     form.image = image;
+    hasUnsavedArtworkChanges.value = true;
+    adminMessage.value = "Cover image uploaded. Click Save artwork to publish it on the site.";
   }
 }
 
@@ -457,6 +499,8 @@ async function uploadGalleryImages(event: Event) {
 
   if (images.length) {
     galleryText.value = [...galleryImages.value, ...images].join("\n");
+    hasUnsavedArtworkChanges.value = true;
+    adminMessage.value = "Gallery images uploaded. Click Save artwork to publish them on the site.";
   }
 }
 
@@ -469,14 +513,45 @@ async function uploadSettingImage(
 
   if (image) {
     settingsForm[key] = image;
+    hasUnsavedSettingsChanges.value = true;
+    adminMessage.value = "Image uploaded. Click Save to publish it on the site.";
   }
 }
+
+watch(
+  form,
+  () => {
+    if (!pauseArtworkDirtyTracking.value) {
+      hasUnsavedArtworkChanges.value = true;
+    }
+  },
+  { deep: true },
+);
+
+watch(galleryText, () => {
+  if (!pauseArtworkDirtyTracking.value) {
+    hasUnsavedArtworkChanges.value = true;
+  }
+});
+
+watch(
+  settingsForm,
+  () => {
+    if (!pauseSettingsDirtyTracking.value) {
+      hasUnsavedSettingsChanges.value = true;
+    }
+  },
+  { deep: true },
+);
 
 onMounted(async () => {
   const sessionResult = await supabase.auth.getSession();
   isLoggedIn.value = Boolean(sessionResult.data.session);
   await loadArtworks();
   await loadSettings();
-  Object.assign(settingsForm, settings.value);
+  runWithoutSettingsDirtyTracking(() => {
+    Object.assign(settingsForm, settings.value);
+  });
+  hasUnsavedSettingsChanges.value = false;
 });
 </script>
